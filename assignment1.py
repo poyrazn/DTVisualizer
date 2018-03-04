@@ -13,45 +13,58 @@ def ID3(Examples, Target_Attribute, Attributes):
     # ID3 (Examples, Target_Attribute, Attributes)
     # Examples: training examples
     # Target_Attribute: predicted by the tree
-    # Attributes: list of other attributes, tested by the learned decision tree
+    # Attributes: list of other attributes, tested by the learned decision tree (list of indices of the attributes)
 
     # Create a node     ??   node.type = root
     #
-    Root = Node(None, "root")
+    node = Node(None, False)
 
     # if all Examples are positive
     #   Root.label <-- +
     #   return the single-node tree
-    counters = classcounter(decisions)
+    counters = classcounter(Target_Attribute)
     if counters[-1] + counters[0] == 0:
-        Root.label = "+"
-        return Root
+        node.label = "+"
+        return node
     #
     # if all Examples are negative
     #   Rode.label <-- -
     #   return the single-node tree root
     if counters[1] + counters[0] == 0:
-        Root.label = "-"
-        return Root
+        node.label = "-"
+        return node
 
     if counters[1] + counters[-1] == 0:
-        Root.label = "0"
-        return Root
+        node.label = "0"
+        return node
 
     #
     # if attributes is empty
     #   Node.label <-- most common value of Target_Attribute in Examples
     #   return the single-node tree root
     if not Attributes:
-        Root.label = mostcommon()
-        return Root
+        node.label = mostcommon(Examples)
+        print("most common: ", node.label)
+        return node
     #
     # else
     #   A  <-- Maximum information gain attr
     #   Root.label <-- A
     #   the decision attribute for Root <-- A
     else:
-        Root.label
+        # attribute = bestclf(S,A)
+        A = bestclf(Examples, Attributes)
+        node.label = attributes[A][0]
+        print("Best attribute:" , node.label)
+        if A <= 1:
+            newnode = Node(node, True)
+            newnode.label = mostcommon(Examples)
+            print("Leaf node with" , newnode.label)
+        else:
+            for example in subset(Examples,A):
+                subtree = ID3(example, Target_Attribute, Attributes[:A] + Attributes[A+1:])
+                print(subtree.label)
+    return node
 
 
 #
@@ -79,35 +92,51 @@ def ID3(Examples, Target_Attribute, Attributes):
 
 
 
-
-
 class Node:
     'Common base class for all nodes'
 
-    def __init__(self, parent, type):
+    def __init__(self, parent, leaf):
         #        self.label = label  #Name of the attribute
         self.parent = parent
-        self.type = type    # root,
-        self.branch = []
-
+        self.leaf = leaf    # true if leaf, false if nonleaf
+        self.children = []
 
 
 def gain(samples, attribute):
     informationgain = entropy(samples)
-
-    for v in attributes[attributes.index(attribute)][1:]:
-        S_v = []  #
-        for i in range(len(samples)):
-            if samples[i][1] == v:
-                S_v.append((attributes.index(attribute), v, decisions[i]))
-
-        informationgain -= (classcounter(S_v)[2] / len(samples)) * entropy(S_v)
-
+    for s in subset(samples, attribute):
+        informationgain -= (len(s) / len(samples)) * entropy(s)
     return informationgain
 
 
+def subset(S, A):
+    subsets = []
+    # j = attributes.index(A)  ||  j = A (attribute index is given as parameter)
+    for v in attributes[A][1:]:
+        S_v = []
+        for s in S:
+            if examples[s][A] == v:
+                S_v.append(s)
+        # for i in range(len(S)):
+        #     if examples[i][j] == v:
+                # S_v.append((j, v, decisions[i]))
+                # S_v.append()
+        subsets.append(S_v)
+    return subsets
 
-# def bestclf:
+
+def bestclf(S,A):
+
+    gains=[];
+    for a in A:
+        gains.append(gain(S,a))
+    max = 0
+    b = 0
+    for i in range(len(gains)):
+        if gains[i] > max:
+            max = gains[i]
+            b = i
+    return A[b]
 
 
 def entropy(samples):
@@ -121,7 +150,6 @@ def entropy(samples):
             entropi -= f * math.log(f, 2)
 
     return entropi
-
 
 
 def mostcommon(S):
@@ -140,9 +168,9 @@ def classcounter(S):
 
     counter= [0.0, 0.0, 0.0, 0.0]
     for s in S:
-        if s[2] == ("yes" or "win"):
+        if decisions[s] == ("yes" or "win"):
             counter[1] += 1
-        elif s[2] == ("no" or "lose" or "loose"):
+        elif decisions[s] == ("no" or "lose" or "loose"):
             counter[-1] += 1
         else:
             counter[0] += 1
@@ -156,11 +184,12 @@ def initialize(dataset):
     global decisions
     global targettrb
     global line_cntr
+    global sampleset
 
     attributes = []
     examples = []
     decisions = []
-    targettrb = ""
+    targettrb = []
     line_cntr = 0
     with open(dataset, "r") as datafile:
         for line in datafile:
@@ -169,7 +198,7 @@ def initialize(dataset):
             if line_cntr is 0:
                 for v in values[:-1]:
                     attributes.append([v])
-                targettrb = values[-1][:-1]
+                targettrb.append(values[-1][:-1])
             else:
 
                 examples.append(values[:-1])
@@ -180,24 +209,8 @@ def initialize(dataset):
 
             line_cntr += 1
     datafile.close()
-
-
-
-
-#
-# def attrindex(attribute):
-#     for i in range(len(features)):
-#         if features[i][0] == attribute:
-#             return i
-#     return -1
-
+    sampleset = [i for i in range(len(decisions))]
 
 initialize("dataset1.txt")
 
-
-for i in range(len(attributes)):
-    S = []
-    for j in range(len(examples)):
-        S.append((j, examples[j][i], decisions[j]))
-    print("Entropy: %.3f" % entropy(S))
-    print("Gain on ", attributes[i][0], " %.4f" % gain(S, attributes[i]))
+ID3(sampleset, [i for i in range(len(decisions))], [j for j in range(len(attributes))])
