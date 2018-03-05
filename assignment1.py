@@ -17,35 +17,41 @@ def ID3(Examples, Target_Attribute, Attributes):
 
     # Create a node     ??   node.type = root
     #
-    node = Node(None, False)
+    Root = Node(None, False)
 
     # if all Examples are positive
     #   Root.label <-- +
     #   return the single-node tree
-    counters = classcounter(Target_Attribute)
-    if counters[-1] + counters[0] == 0:
-        node.label = "+"
-        return node
+    counters = classcounter(Examples)
+    if counters[1] == counters[2]:
+    # if counters[-1] + counters[0] == 0:
+        Root.leaf = True
+        Root.label = "+"
+        return Root
     #
     # if all Examples are negative
     #   Rode.label <-- -
     #   return the single-node tree root
-    if counters[1] + counters[0] == 0:
-        node.label = "-"
-        return node
-
-    if counters[1] + counters[-1] == 0:
-        node.label = "0"
-        return node
+    if counters[-1] == counters[2]:
+    # if counters[1] + counters[0] == 0:
+        Root.leaf = True
+        Root.label = "-"
+        return Root
+    if counters[0] == counters[2]:
+    # if counters[1] + counters[-1] == 0:
+        Root.leaf = True
+        Root.label = "0"
+        return Root
 
     #
     # if attributes is empty
     #   Node.label <-- most common value of Target_Attribute in Examples
     #   return the single-node tree root
     if not Attributes:
-        node.label = mostcommon(Examples)
-        print("most common: ", node.label)
-        return node
+        Root.leaf = True
+        Root.label = mostcommon(Examples)
+        # print("most common: in ", Examples , Root.label)
+        return Root
     #
     # else
     #   A  <-- Maximum information gain attr
@@ -54,17 +60,39 @@ def ID3(Examples, Target_Attribute, Attributes):
     else:
         # attribute = bestclf(S,A)
         A = bestclf(Examples, Attributes)
-        node.label = attributes[A][0]
-        print("Best attribute:" , node.label)
-        if A <= 1:
-            newnode = Node(node, True)
-            newnode.label = mostcommon(Examples)
-            print("Leaf node with" , newnode.label)
-        else:
-            for example in subset(Examples,A):
-                subtree = ID3(example, Target_Attribute, Attributes[:A] + Attributes[A+1:])
-                print(subtree.label)
-    return node
+        Root.label = attributes[A][0]
+        subsets = subset(Examples, A)
+        Root.branches = attributes[A][1:]
+        # print("Subsets of attribute:", attributes[A][0])
+        # print(subsets)
+        for example in subsets:
+            if not example:
+                leaf = Node(Root, True)
+                leaf.label = mostcommon(Examples)
+                Root.children.append(leaf)
+            else:
+                # print("Examples for", attributes[A][subsets.index(example)+1])
+                # print(example)
+                # print("Attributes:")
+                # print(Attributes)
+                # print("A:", A)
+                attributesleft = [a for a in Attributes if a != A]
+                # print("Attributes left")
+                # print(attributesleft)
+                subtree = ID3(example, example, attributesleft)
+                Root.children.append(subtree)
+
+        # print("Best attribute:" , Root.label)
+        # if A <= 1:
+        #     newnode = Node(Root, True)
+        #     newnode.label = mostcommon(Examples)
+        #     print("Leaf node with" , newnode.label)
+        # else:
+        #     for example in subset(Examples,A):
+        #         subtree = ID3(example, Target_Attribute, Attributes[:A] + Attributes[A+1:])
+        #         Root.children.append(subtree)
+        #         print(subtree.label)
+    return Root
 
 
 #
@@ -100,12 +128,14 @@ class Node:
         self.parent = parent
         self.leaf = leaf    # true if leaf, false if nonleaf
         self.children = []
+        self.branches = []
 
 
 def gain(samples, attribute):
     informationgain = entropy(samples)
     for s in subset(samples, attribute):
-        informationgain -= (len(s) / len(samples)) * entropy(s)
+        reduced = (len(s) / len(samples)) * entropy(s)
+        informationgain -= reduced
     return informationgain
 
 
@@ -117,26 +147,31 @@ def subset(S, A):
         for s in S:
             if examples[s][A] == v:
                 S_v.append(s)
-        # for i in range(len(S)):
-        #     if examples[i][j] == v:
-                # S_v.append((j, v, decisions[i]))
-                # S_v.append()
         subsets.append(S_v)
     return subsets
 
 
 def bestclf(S,A):
 
-    gains=[];
+    gains = [];
     for a in A:
-        gains.append(gain(S,a))
-    max = 0
+        gains.append(gain(S, a))
     b = 0
     for i in range(len(gains)):
-        if gains[i] > max:
-            max = gains[i]
+        if gains[i] > gains[A.index(A[b])]:
             b = i
     return A[b]
+
+    # gains = [];
+    # for a in A:
+    #     gains.append(gain(S, a))
+    # maxgain = 0
+    # b = 0
+    # for i in range(len(gains)):
+    #     if gains[i] > maxgain:
+    #         maxgain = gains[i]
+    #         b = i
+    # return A[b]
 
 
 def entropy(samples):
@@ -144,6 +179,9 @@ def entropy(samples):
     # S stores the indices in decisions which corresponds the sample value's index (row number)
     entropi = 0.0000
     counter = classcounter(samples)
+    # print(counter)
+    if not samples:
+        return entropi
     fractions = [counter[0] / counter[2], counter[1] / counter[2], counter[-1] / counter[2]]
     for f in fractions:
         if f != 0:
@@ -166,7 +204,7 @@ def mostcommon(S):
 
 def classcounter(S):
 
-    counter= [0.0, 0.0, 0.0, 0.0]
+    counter = [0.0, 0.0, 0.0, 0.0]
     for s in S:
         if decisions[s] == ("yes" or "win"):
             counter[1] += 1
@@ -211,6 +249,18 @@ def initialize(dataset):
     datafile.close()
     sampleset = [i for i in range(len(decisions))]
 
+
+def printTree(tree):
+    print(tree.label)
+    for child in tree.children:
+        print(tree.branches[tree.children.index(child)])
+        printTree(child)
+
+
 initialize("dataset1.txt")
 
-ID3(sampleset, [i for i in range(len(decisions))], [j for j in range(len(attributes))])
+nd = ID3(sampleset, sampleset, [j for j in range(len(attributes))])
+printTree(nd)
+
+
+
