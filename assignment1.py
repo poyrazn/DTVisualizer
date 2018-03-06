@@ -11,117 +11,44 @@ import math
 
 def ID3(Examples, Target_Attribute, Attributes):
     # ID3 (Examples, Target_Attribute, Attributes)
-    # Examples: training examples
-    # Target_Attribute: predicted by the tree
+    # Examples: training examples  (List of indices of the training example set)
+    # Target_Attribute: predicted by the tree (List of indices of the target attribute set)
     # Attributes: list of other attributes, tested by the learned decision tree (list of indices of the attributes)
 
-    # Create a node     ??   node.type = root
+
+    # Create a node
     #
     Root = Node(None, False)
 
-    # if all Examples are positive
-    #   Root.label <-- +
-    #   return the single-node tree
+    # if all Examples are the same class
     counters = classcounter(Examples)
-    if counters[1] == len(Examples):
-    # if counters[-1] + counters[0] == 0:
-        Root.leaf = True
-        Root.label = "+"
-        return Root
-    #
-    # if all Examples are negative
-    #   Rode.label <-- -
-    #   return the single-node tree root
-    if counters[-1] == len(Examples):
-    # if counters[1] + counters[0] == 0:
-        Root.leaf = True
-        Root.label = "-"
-        return Root
-    if counters[0] == len(Examples):
-    # if counters[1] + counters[-1] == 0:
-        Root.leaf = True
-        Root.label = "0"
-        return Root
+
+    for count in counters:
+        if count == len(Examples):
+            Root.leaf = True
+            Root.label = target[counters.index(count) +1]
+            return Root
 
     #
     # if attributes is empty
-    #   Node.label <-- most common value of Target_Attribute in Examples
-    #   return the single-node tree root
     if not Attributes:
         Root.leaf = True
         Root.label = mostcommon(Examples)
-        # print("most common: in ", Examples , Root.label)
         return Root
-    #
-    # else
-    #   A  <-- Maximum information gain attr
-    #   Root.label <-- A
-    #   the decision attribute for Root <-- A
-    else:
 
-        # attribute = bestclf(S,A)
+    else:
         A = bestclf(Examples, Attributes)
         Root.label = attributes[A][0]
         subsets = subset(Examples, A)
-        # for a in attributes[A][1:]:
-        #     branch = Branch(a, Root)
+        #   foreach possible value, V_i, of A
+        #       create a branch     |   Branch.condition = V_i
         Root.branches = attributes[A][1:]
-        # print("Subsets of attribute:", attributes[A][0])
-        # print(subsets)
-        for example in subsets:
-            # if not example:
-            #     leaf = Node(Root, True)
-            #     leaf.label = mostcommon(Examples)
-            #     Root.children.append(leaf)
-            # else:
-                # print("Subsets of attribute:", attributes[A][0])
-
-            # print(example)
-            # print("Attributes:")
-            # print(Attributes)
-            # print("A:", A)
-            attributesleft = [a for a in Attributes if a != A]
-            # print("Attributes left")
-            # print(attributesleft)
-            subtree = ID3(example, example, attributesleft)
+        # for each branch create a new Node
+        for sets in subsets:
+            subtree = ID3(sets, sets, [a for a in Attributes if a != A])
             Root.children.append(subtree)
 
-        # print("Best attribute:" , Root.label)
-        # if A <= 1:
-        #     newnode = Node(Root, True)
-        #     newnode.label = mostcommon(Examples)
-        #     print("Leaf node with" , newnode.label)
-        # else:
-        #     for example in subset(Examples,A):
-        #         subtree = ID3(example, Target_Attribute, Attributes[:A] + Attributes[A+1:])
-        #         Root.children.append(subtree)
-        #         print(subtree.label)
     return Root
-
-
-#
-#   foreach possible value, V_i, of A
-#       create a branch     ??   Branch.condition = V_i
-#       Root.childnum++
-#
-#       foreach example in Examples
-#           if  Example.value = V_i
-#               Examples_Vi.add(example)
-#           if Examples_Vi is empty
-#               create a Node
-#               Node.label <-- most common value of Target_attr in Examples
-#               Node.type <-- leaf
-#               Branch.link(Node)
-#           else
-#               new Node <-- constructree(Examples_Vi, Target_Attr, Attributes - {A})
-#               Branch.link(Node)
-#
-# end
-# Return Root
-
-
-# def constructree (Examples, target_attr, Attributes):
-
 
 
 class Node:
@@ -142,10 +69,10 @@ class Branch:
         self.children = []
 
 
-def gain(samples, attribute):
-    informationgain = entropy(samples)
-    for s in subset(samples, attribute):
-        reduced = (len(s) / len(samples)) * entropy(s)
+def gain(S, A):
+    informationgain = entropy(S)
+    for s in subset(S, A):
+        reduced = (len(s) / len(S)) * entropy(s)
         informationgain -= reduced
     return informationgain
 
@@ -162,8 +89,10 @@ def subset(S, A):
     return subsets
 
 
-def bestclf(S,A):
+def bestclf(S, A):
 
+    # S(list): Elements of the list are the indices of elements in Examples (corresponds to the rows in dataset.txt)
+    # A(list): Elements of the list are the indices of elements in attributes (index of the list (attribute and values))
     gains = [];
     for a in A:
         gains.append(gain(S, a))
@@ -173,16 +102,6 @@ def bestclf(S,A):
             b = i
     return A[b]
 
-    # gains = [];
-    # for a in A:
-    #     gains.append(gain(S, a))
-    # maxgain = 0
-    # b = 0
-    # for i in range(len(gains)):
-    #     if gains[i] > maxgain:
-    #         maxgain = gains[i]
-    #         b = i
-    # return A[b]
 
 
 def entropy(samples):
@@ -190,10 +109,12 @@ def entropy(samples):
     # S stores the indices in decisions which corresponds the sample value's index (row number)
     entropi = 0.0000
     counter = classcounter(samples)
+
     # print(counter)
     if not samples:
         return entropi
-    fractions = [counter[0] / len(samples), counter[1] / len(samples), counter[-1] / len(samples)]
+
+    fractions = [count / len(samples) for count in counter]
     for f in fractions:
         if f != 0:
             entropi -= f * math.log(f, 2)
@@ -214,43 +135,42 @@ def mostcommon(S):
 
 
 def classcounter(S):
-
-    counter = [0.0, 0.0, 0.0]
+    counter = [0.0] * (len(target)-1)
     for s in S:
-        if decisions[s] == ("yes" or "win"):
-            counter[1] += 1
-        elif decisions[s] == ("no" or "lose" or "loose"):
-            counter[-1] += 1
-        else:
-            counter[0] += 1
+        if decisions[s] in target:
+            counter[target.index(decisions[s])-1] += 1
     return counter
 
 
-def initialize(dataset):
+def main(dataset):
     global attributes
     global examples
     global decisions
-    global targettrb
+    global target
     global line_cntr
     global sampleset
+    global decisionTree
 
     attributes = []
     examples = []
     decisions = []
-    targettrb = []
+    target = []
     line_cntr = 0
     with open(dataset, "r") as datafile:
         for line in datafile:
             values = line.split(', ')
-
+            decision = values[-1].replace("\n", "")
             if line_cntr is 0:
                 for v in values[:-1]:
                     attributes.append([v])
-                targettrb.append(values[-1][:-1])
-            else:
 
+                target.append(decision)
+
+            else:
                 examples.append(values[:-1])
-                decisions.append(values[-1][:-1])
+                decisions.append(decision)
+                if decision not in target:
+                    target.append(decision)
                 for i in range(len(attributes)):
                     if values[i] not in attributes[i]:
                         attributes[i].append(values[i])
@@ -258,26 +178,19 @@ def initialize(dataset):
             line_cntr += 1
     datafile.close()
     sampleset = [i for i in range(len(decisions))]
+    decisionTree = ID3(sampleset, sampleset, [j for j in range(len(attributes))])
+
 
 
 def printTree(tree):
     for b in range(len(tree.children)):
         print(tree.label, "=", tree.branches[b], "--> ", end="")
         if tree.children[b].leaf:
-            print("OUTPUT", tree.children[b].label)
+            print("OUTPUT =", tree.children[b].label)
         else:
             printTree(tree.children[b])
 
-
-    # for child in tree.children:
-    #     print(tree.branches[tree.children.index(child)])
-    #     printTree(child)
+main("dataset1.txt")
 
 
-initialize("dataset1.txt")
-
-nd = ID3(sampleset, sampleset, [j for j in range(len(attributes))])
-printTree(nd)
-
-
-
+# printTree(decisionTree)
